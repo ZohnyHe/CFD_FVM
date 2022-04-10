@@ -1,0 +1,16 @@
+// 將此表單送出的請求，以 POST 的方式送至 /api/form
+
+form(action='/api/form', method='post')
+  fieldset(data-role='controlgroup')
+        p x
+            input(type="text", name="x", value='', placeholder='')
+        p y
+            input(type="text", name="y", value='', placeholder='')
+        p z
+            input(type="text", name="z", value='', placeholder='')
+
+  fieldset(data-role='controlgroup')
+    p cam_dist
+        input(type="text", name="cam_dist", value='50', placeholder='')
+  p
+    input(type="submit", value='提交')
