@@ -2,11 +2,10 @@ var express = require('express');
 var app = express()
 var cookieParser = require('cookie-parser');
 app.use(cookieParser());
-// var logger = require('morgan');
-// app.use(logger('dev'));
+
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded( {extended: true }));
-// app.use(bodyParser.json());
+
 var createError = require('http-errors');
 var path = require('path');
 var routes = require('./routes');
@@ -42,6 +41,7 @@ const { sequelize } = require('./models')
 const { OutputTime, OutputData, CellsData, OutputTemperature, OutputVelocity,
         PointsData, FacesData, OwnerData, NeighbourData, ConstData } = require('./models');
 const Sequelize = require('sequelize');
+
 
 
 router.get('/getPoint/', async(req, res) => {
@@ -101,7 +101,7 @@ router.get('/getCell/', async(req, res) => {
 
         const data = await ConstData.findAll({ 
             where: { cellsId: cell.cellsId, facesDataId: {[Sequelize.Op.or]: [face_1.facesDataId, face_2.facesDataId, face_3.facesDataId,
-                                                                                        face_4.facesDataId, face_5.facesDataId, face_6.facesDataId]} },
+                        face_4.facesDataId, face_5.facesDataId, face_6.facesDataId]} },
             // include: [{ model: FacesData, as: 'faces' }]
             include: [{ model: CellsData, as: 'cellsConst' }, { model: FacesData, as: 'faces' }, { model: PointsData, as: 'point' }]
             // include: [{ model: FacesData, as: 'faces' }, { model: PointsData, as: 'point' }]
@@ -114,65 +114,16 @@ router.get('/getCell/', async(req, res) => {
 })
 
 
-router.get('/getPointsConstData/', async(req, res) => {
+router.get('/getDataByTimeStep/:timeStep', async(req, res) => {
+    const TimeStep = req.params.timeStep
     try {
-        const points = await PointsData.findAll()
-        return res.json(points)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({ error: `Something went wrong`})
-    }
-})
-
-router.get('/getFacesConstData/', async(req, res) => {
-    try {
-        const faces = await FacesData.findAll()
-        return res.json(faces)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({ error: `Something went wrong`})
-    }
-})
-
-router.get('/getOwnersConstData/', async(req, res) => {
-    try {
-        const owners = await OwnerData.findAll()
-        return res.json(owners)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({ error: `Something went wrong`})
-    }
-})
-
-router.get('/getNeighboursConstData/', async(req, res) => {
-    try {
-        const neighbours = await NeighbourData.findAll()
-        return res.json(neighbours)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({ error: `Something went wrong`})
-    }
-})
-
-router.get('/getCellsConstData/', async(req, res) => {
-    try {
-        const neighbours = await CellsData.findAll()
-        return res.json(neighbours)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({ error: `Something went wrong`})
-    }
-})
-
-router.get('/getCellsData/', async(req, res) => {
-    const CellsIndex = req.query.cellsIndex
-    try {
-        const cell = await ConstData.findAll({
-            where: { cellsIndexExternalFacesBelongsTo: CellsIndex },
+        const time = await OutputTime.findOne({ where: { timeStep: TimeStep }});
+        const data = await OutputData.findAll({ 
+            where: { timeId: time.timeId },
             include: [{ model: OutputTime, as: 'time' }, { model: CellsData, as: 'cells' },
                         { model: OutputTemperature, as: 'temperature' }, { model: OutputVelocity, as: 'velocity'}]
         })
-        return res.json(cell)
+        return res.json(data)
     } catch (err) {
         console.log(err)
         return res.status(500).json({ error: `Something went wrong`})
@@ -197,42 +148,12 @@ router.get('/getDataByTimeStepAndCellsIndex/', async(req, res) => {
     }
 })
 
-router.get('/getDataByTimeId/:timeId', async(req, res) => {
-    const TimeId = req.params.timeId
-    try {
-        const time = await OutputTime.findOne({ where: { timeId: TimeId }});
-        const data = await OutputData.findAll({ 
-            where: { timeId: time.timeId },
-            include: [{ model: OutputTime, as: 'time' }, { model: CellsData, as: 'cells' },
-                        { model: OutputTemperature, as: 'temperature' }, { model: OutputVelocity, as: 'velocity'}]
-        })
-        return res.json(data)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({ error: `Something went wrong`})
-    }
-})
-
-router.get('/getDataByTimeStep/:timeStep', async(req, res) => {
-    const TimeStep = req.params.timeStep
-    try {
-        const time = await OutputTime.findOne({ where: { timeStep: TimeStep }});
-        const data = await OutputData.findAll({ 
-            where: { timeId: time.timeId },
-            include: [{ model: OutputTime, as: 'time' }, { model: CellsData, as: 'cells' },
-                        { model: OutputTemperature, as: 'temperature' }, { model: OutputVelocity, as: 'velocity'}]
-        })
-        return res.json(data)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({ error: `Something went wrong`})
-    }
-})
 
 // router.get('/three', function(req, res, next) {
 //     console.log(`HI`);
 //     res.render('three', { x: 1, y: 1, z: 1, cam_dist: 10, title: "Three.js test", message: "Defaultttt"});  
 //     });
+
 
 app.listen({ port: 5000 }, async () => {
     console.log(`Server up on http://localhost:5000`)

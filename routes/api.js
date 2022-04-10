@@ -8,34 +8,90 @@ const { createTimeStepArrayFromDataFolder, readTemperatureArrayFromTimeFolder,
         readOwnerArrayFromConstFolder, readNeighbourArrayFromConstFolder,
         createCellsArrayFromOwnerArrayAndNeighbourArray } = require('../src/readFilePath')
 
-let srcFolderPath = './CFD_outputData/'
+const srcFolderPath = './CFD_outputData/'
 const { 
-    Output_time, Output_cells_data, Cells_topo,
-    OutputData, CellsData, OutputTime, OutputTemperature, OutputVelocity,
-    PointsData, FacesData, OwnerData, NeighbourData, ConstData
-            } = require('../models')
+        Output_time, OutputData, CellsData, OutputTime, OutputTemperature, OutputVelocity,
+        PointsData, FacesData, OwnerData, NeighbourData, ConstData
+} = require('../models')           
 
 
-// find data by keying time step & cell index
-// router.post('/datas/', express.json(), async(req, res) => {
-//     const { TimeStep, CellsIndex } = req.body
-//     console.log(TimeStep);
-//     try {
-//         const time = await OutputTime.findOne({ where: { timeStep: TimeStep }});
-//         const cell = await OutputCellsIndex.findOne({ where: { cellsIndex: CellsIndex }});
-//         const data = await OutputData.findAll({ 
-//             where: { timeId: time.timeId, cellsId: cell.cellsId },
-//             include: [{ model: OutputTime, as: 'time' }, { model: OutputCellsIndex, as: 'cells' },
-//                         { model: OutputTemperature, as: 'temperature' }, { model: OutputVelocity, as: 'velocity'}]
-//         })
-//         return res.json(data)
-//     } catch (err) {
-//         console.log(err)
-//         return res.status(500).json({ error: `Something went wrong`})
-//     }
-// })
 
 // create all const data by keying case's name
+router.post('/createPoints', express.json(), async(req, res) => {
+    const { caseFolderName } = req.body
+    let pointsArray = readPointsArrayFromConstFolder(srcFolderPath, caseFolderName)
+    let pointsXYZarray = splitArrayInto3Dimension(pointsArray)
+    try {
+        for(let i = 0; i < pointsArray.length; i++) {
+                const points = await PointsData.create({ pointsIndex: i, pointsXcoordinate: pointsXYZarray.dimension_1[i], 
+                    pointsYcoordinate: pointsXYZarray.dimension_2[i], pointsZcoordinate: pointsXYZarray.dimension_3[i] })
+            }
+        return res.json({ message: `Insert complete!` })
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json(err)
+    }
+})
+
+
+router.post('/createFaces', express.json(), async(req, res) => {
+    const { caseFolderName } = req.body
+    let facesArray = readFacesArrayFromConstFolder(srcFolderPath, caseFolderName)
+    let facesSplitArray = splitFacesArray(facesArray)
+    let keyword = /3\(/
+    try {
+        if (keyword.test(facesArray)) {
+            for(let i = 0; i < facesArray.length; i++) {
+                const faces = await FacesData.create({ facesIndex: i, facesFirstPointsIndex: facesSplitArray.index_1[i], 
+                    facesSecondPointsIndex: facesSplitArray.index_2[i], facesThirdPointsIndex: facesSplitArray.index_3[i] })
+            }
+        return res.json({ message: `Insert complete!` })
+        } else {
+            for(let i = 0; i < facesArray.length; i++) {
+                const faces = await FacesData.create({ facesIndex: i, facesFirstPointsIndex: facesSplitArray.index_1[i], 
+                    facesSecondPointsIndex: facesSplitArray.index_2[i], facesThirdPointsIndex: facesSplitArray.index_3[i],
+                    facesFourthPointsIndex: facesSplitArray.index_4[i] })
+            }
+        return res.json({ message: `Insert complete!` })
+        }
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json(err)
+    }
+})
+
+
+router.post('/createCells', express.json(), async(req, res) => {
+    const { caseFolderName } = req.body
+    let ownerArray = readOwnerArrayFromConstFolder(srcFolderPath, caseFolderName)
+    let neighbourArray = readNeighbourArrayFromConstFolder(srcFolderPath, caseFolderName)
+    let cellsArray = createCellsArrayFromOwnerArrayAndNeighbourArray(ownerArray, neighbourArray)
+    let facesNumber = cellsArray[0].length
+    try {
+        if (facesNumber = 6) {
+            for(let CellsIndex = 0; CellsIndex < cellsArray.length; CellsIndex++) {
+                const cells = await CellsData.create({ cellsIndex: CellsIndex, 
+                    cellsFirstFacesIndex: cellsArray[CellsIndex][0], cellsSecondFacesIndex: cellsArray[CellsIndex][1],
+                    cellsThridFacesIndex: cellsArray[CellsIndex][2], cellsFourthFacesIndex: cellsArray[CellsIndex][3],
+                    cellsFifthFacesIndex: cellsArray[CellsIndex][4], cellsSixthFacesIndex: cellsArray[CellsIndex][5] 
+                })
+            }
+        } else {
+            for(let CellsIndex = 0; CellsIndex < cellsArray.length; CellsIndex++) {
+                const cells = await CellsData.create({ cellsIndex: CellsIndex, 
+                    cellsFirstFacesIndex: cellsArray[CellsIndex][0], cellsSecondFacesIndex: cellsArray[CellsIndex][1],
+                    cellsThridFacesIndex: cellsArray[CellsIndex][2], cellsFourthFacesIndex: cellsArray[CellsIndex][3]
+                })
+            }
+        }    
+        return res.json({ message: `Insert complete!` })
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json(err)
+    }
+})
+
+
 router.post('/createConstData', express.json(), async(req, res) => {
     const { caseFolderName } = req.body
     let facesArray = readFacesArrayFromConstFolder(srcFolderPath, caseFolderName)
@@ -229,136 +285,15 @@ router.post('/createConstData', express.json(), async(req, res) => {
     }
 })
 
-// create all const data by keying case's name
-router.post('/createConstDataPointsAndFaces', express.json(), async(req, res) => {
-    const { caseFolderName } = req.body
-    let facesArray = readFacesArrayFromConstFolder(srcFolderPath, caseFolderName)
-    let keyword = /3\(/
-    try {
-        if (keyword.test(facesArray)) {
-            for(let i = 0; i < facesArray.length; i++) {
-                const faces = await FacesData.findOne({ where: { facesIndex: i.toFixed(0) } })
-                const point_1 = await PointsData.findOne({ where: { pointsIndex: faces.facesFirstPointsIndex }})
-                const point_2 = await PointsData.findOne({ where: { pointsIndex: faces.facesSecondPointsIndex }})
-                const point_3 = await PointsData.findOne({ where: { pointsIndex: faces.facesThirdPointsIndex }})
-                const constData_1 = await ConstData.create({
-                    facesDataId: faces.facesDataId, pointsDataId: point_1.pointsDataId,                           
-                })
-                const constData_2 = await ConstData.create({
-                    facesDataId: faces.facesDataId, pointsDataId: point_2.pointsDataId,                           
-                })
-                const constData_3 = await ConstData.create({
-                    facesDataId: faces.facesDataId, pointsDataId: point_3.pointsDataId,                           
-                })
-            }
-        return res.json({ message: `Insert complete!` })
-        } else {
-            for(let i = 0; i < facesArray.length; i++) {
-                const faces = await FacesData.findOne({ where: { facesIndex: i.toFixed(0) } })
-                const point_1 = await PointsData.findOne({ where: { pointsIndex: faces.facesFirstPointsIndex }})
-                const point_2 = await PointsData.findOne({ where: { pointsIndex: faces.facesSecondPointsIndex }})
-                const point_3 = await PointsData.findOne({ where: { pointsIndex: faces.facesThirdPointsIndex }})
-                const point_4 = await PointsData.findOne({ where: { pointsIndex: faces.facesFourthPointsIndex }})               
-                const constData_1 = await ConstData.create({
-                    facesDataId: faces.facesDataId, pointsDataId: point_1.pointsDataId,                           
-                })
-                const constData_2 = await ConstData.create({
-                    facesDataId: faces.facesDataId, pointsDataId: point_2.pointsDataId,                           
-                })
-                const constData_3 = await ConstData.create({
-                    facesDataId: faces.facesDataId, pointsDataId: point_3.pointsDataId,                           
-                })
-                const constData_4 = await ConstData.create({
-                    facesDataId: faces.facesDataId, pointsDataId: point_4.pointsDataId,                           
-                })                                          
-            }
-        }
-        return res.json({ message: `Insert complete!` })
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json(err)
-    }
-})
-
-
-// create all const data by keying case's name
-// router.post('/createAllConstData', express.json(), async(req, res) => {
-//     const { caseFolderName } = req.body
-//     let pointsArray = readPointsArrayFromConstFolder(srcFolderPath, caseFolderName)
-//     let pointsXYZarray = splitArrayInto3Dimension(pointsArray)
-//     let facesArray = readFacesArrayFromConstFolder(srcFolderPath, caseFolderName)
-//     let facesSplitArray = splitFacesArray(facesArray)
-//     let keyword = /3\(/
-//     let ownerArray = readOwnerArrayFromConstFolder(srcFolderPath, caseFolderName)
-//     let neighbourArray = readNeighbourArrayFromConstFolder(srcFolderPath, caseFolderName)
-//     try {
-//         if (keyword.test(facesArray)) {
-//             for(let i = 0; i < facesSplitArray.index_1.length; i++) {
-//                 const faces = await FacesData.create({ facesIndex: i, facesFirstPointsIndex: facesSplitArray.index_1[i], 
-//                     facesSecondPointsIndex: facesSplitArray.index_2[i], facesThirdPointsIndex: facesSplitArray.index_3[i] })
-//                 for(let j = 0; j < pointsArray.length; j++) {
-//                     const points = await PointsData.create({ pointsIndex: j, pointsXcoordinate: pointsXYZarray.dimension_1[j], 
-//                         pointsYcoordinate: pointsXYZarray.dimension_2[j], pointsZcoordinate: pointsXYZarray.dimension_3[j] })
-//                     for(let k = 0; k < ownerArray.length; k++) {
-//                         const owner = await OwnerData.create({ externalFacesIndex: k, 
-//                             cellsIndexExternalFacesBelongsTo: ownerArray[k] })
-//                         for(let n = 0; n < neighbourArray.length; n++) {
-//                             const neighbour = await NeighbourData.create({ internalFacesIndex: n, 
-//                                 cellsIndexInternalFacesBelongsTo: neighbourArray[n] })
-//                             const constData = await ConstData.create({
-//                             pointsDataId: points.pointsDataId, facesDataId: faces.facesDataId,
-//                             ownerDataId: owner.ownerDataId, neighbourDataId: neighbour.neighbourDataId
-//                             })
-//                             console.log(constData)
-//                         }
-//                     }
-//                 }
-//             }
-//         return res.json({ message: `Insert complete!` })
-//         } else {
-//             for(let i = 0; i < facesSplitArray.index_1.length; i++) {
-//                 const faces = await FacesData.create({ facesIndex: i, facesFirstPointsIndex: facesSplitArray.index_1[i], 
-//                     facesSecondPointsIndex: facesSplitArray.index_2[i], facesThirdPointsIndex: facesSplitArray.index_3[i],
-//                     facesFourthPointsIndex: facesSplitArray.index_4[i] })
-//                 for(let j = 0; j < pointsArray.length; j++) {
-//                     const points = await PointsData.create({ pointsIndex: j, pointsXcoordinate: pointsXYZarray.dimension_1[j], 
-//                         pointsYcoordinate: pointsXYZarray.dimension_2[j], pointsZcoordinate: pointsXYZarray.dimension_3[j] })
-//                     for(let k = 0; k < ownerArray.length; k++) {
-//                         const owner = await OwnerData.create({ externalFacesIndex: k, 
-//                             cellsIndexExternalFacesBelongsTo: ownerArray[k] })
-//                         for(let n = 0; n < neighbourArray.length; n++) {
-//                             const neighbour = await NeighbourData.create({ internalFacesIndex: n, 
-//                                 cellsIndexInternalFacesBelongsTo: neighbourArray[n] })
-//                             const constData = await ConstData.create({
-//                             pointsDataId: points.pointsDataId, facesDataId: faces.facesDataId,
-//                             ownerDataId: owner.ownerDataId, neighbourDataId: neighbour.neighbourDataId
-//                             })
-//                             console.log(constData)
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//         return res.json({ message: `Insert complete!` })
-//     } catch (err) {
-//         console.log(err)
-//         return res.status(500).json(err)
-//     }
-// })
-
 
 // create all time steps and cell index by keying case's name
-router.post('/createTimeAndCells', express.json(), async(req, res) => {
+router.post('/createTime', express.json(), async(req, res) => {
     const { caseFolderName } = req.body
     let TimeStepArray = createTimeStepArrayFromDataFolder(srcFolderPath, caseFolderName)
-    let CellsNumber = readCellsNumberFromDataFolder(srcFolderPath, caseFolderName)
     try {
         TimeStepArray.forEach(timeStep => {
             OutputTime.create({ timeStep: timeStep })
         })
-        for(let i = 0; i < CellsNumber; i++) {
-            await CellsData.create({ cellsIndex: i })
-        }
         return res.json({ message: `Insert complete!` })
     } catch (err) {
         console.log(err)
@@ -401,53 +336,7 @@ router.post('/createAllOutputData', express.json(), async(req, res) => {
 })
 
 
-// 
-router.post('/createPoints', express.json(), async(req, res) => {
-    const { caseFolderName } = req.body
-    let pointsArray = readPointsArrayFromConstFolder(srcFolderPath, caseFolderName)
-    let pointsXYZarray = splitArrayInto3Dimension(pointsArray)
-    try {
-        for(let i = 0; i < pointsArray.length; i++) {
-                const points = await PointsData.create({ pointsIndex: i, pointsXcoordinate: pointsXYZarray.dimension_1[i], 
-                    pointsYcoordinate: pointsXYZarray.dimension_2[i], pointsZcoordinate: pointsXYZarray.dimension_3[i] })
-            }
-        return res.json({ message: `Insert complete!` })
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json(err)
-    }
-})
 
-
-// 
-router.post('/createFaces', express.json(), async(req, res) => {
-    const { caseFolderName } = req.body
-    let facesArray = readFacesArrayFromConstFolder(srcFolderPath, caseFolderName)
-    let facesSplitArray = splitFacesArray(facesArray)
-    let keyword = /3\(/
-    try {
-        if (keyword.test(facesArray)) {
-            for(let i = 0; i < facesArray.length; i++) {
-                const faces = await FacesData.create({ facesIndex: i, facesFirstPointsIndex: facesSplitArray.index_1[i], 
-                    facesSecondPointsIndex: facesSplitArray.index_2[i], facesThirdPointsIndex: facesSplitArray.index_3[i] })
-            }
-        return res.json({ message: `Insert complete!` })
-        } else {
-            for(let i = 0; i < facesArray.length; i++) {
-                const faces = await FacesData.create({ facesIndex: i, facesFirstPointsIndex: facesSplitArray.index_1[i], 
-                    facesSecondPointsIndex: facesSplitArray.index_2[i], facesThirdPointsIndex: facesSplitArray.index_3[i],
-                    facesFourthPointsIndex: facesSplitArray.index_4[i] })
-            }
-        return res.json({ message: `Insert complete!` })
-        }
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json(err)
-    }
-})
-
-
-// 
 router.post('/createOwner', express.json(), async(req, res) => {
     const { caseFolderName } = req.body
     let ownerArray = readOwnerArrayFromConstFolder(srcFolderPath, caseFolderName)
@@ -464,7 +353,6 @@ router.post('/createOwner', express.json(), async(req, res) => {
 })
 
 
-// 
 router.post('/createNeighbour', express.json(), async(req, res) => {
     const { caseFolderName } = req.body
     let neighbourArray = readNeighbourArrayFromConstFolder(srcFolderPath, caseFolderName)
@@ -473,37 +361,6 @@ router.post('/createNeighbour', express.json(), async(req, res) => {
                 const neighbour = await NeighbourData.create({ internalFacesIndex: i, 
                     cellsIndexInternalFacesBelongsTo: neighbourArray[i] })
             }
-        return res.json({ message: `Insert complete!` })
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json(err)
-    }
-})
-
-
-router.post('/createCells', express.json(), async(req, res) => {
-    const { caseFolderName } = req.body
-    let ownerArray = readOwnerArrayFromConstFolder(srcFolderPath, caseFolderName)
-    let neighbourArray = readNeighbourArrayFromConstFolder(srcFolderPath, caseFolderName)
-    let cellsArray = createCellsArrayFromOwnerArrayAndNeighbourArray(ownerArray, neighbourArray)
-    let facesNumber = cellsArray[0].length
-    try {
-        if (facesNumber = 6) {
-            for(let CellsIndex = 0; CellsIndex < cellsArray.length; CellsIndex++) {
-                const cells = await CellsData.create({ cellsIndex: CellsIndex, 
-                    cellsFirstFacesIndex: cellsArray[CellsIndex][0], cellsSecondFacesIndex: cellsArray[CellsIndex][1],
-                    cellsThridFacesIndex: cellsArray[CellsIndex][2], cellsFourthFacesIndex: cellsArray[CellsIndex][3],
-                    cellsFifthFacesIndex: cellsArray[CellsIndex][4], cellsSixthFacesIndex: cellsArray[CellsIndex][5] 
-                })
-            }
-        } else {
-            for(let CellsIndex = 0; CellsIndex < cellsArray.length; CellsIndex++) {
-                const cells = await CellsData.create({ cellsIndex: CellsIndex, 
-                    cellsFirstFacesIndex: cellsArray[CellsIndex][0], cellsSecondFacesIndex: cellsArray[CellsIndex][1],
-                    cellsThridFacesIndex: cellsArray[CellsIndex][2], cellsFourthFacesIndex: cellsArray[CellsIndex][3]
-                })
-            }
-        }    
         return res.json({ message: `Insert complete!` })
     } catch (err) {
         console.log(err)
@@ -547,79 +404,5 @@ router.post('/form', function(req, res, next) {
     res.render('three', { x: Number(req.body.x), y: Number(req.body.y), z: Number(req.body.z), cam_dist: Number(req.body.cam_dist)});
     // res.redirect('/page/three', { x: Number(req.body.x), y: Number(req.body.y), z: Number(req.body.z), cam_dist: Number(req.body.cam_dist)});
 });
-
-// post FK example
-// router.post('/create', express.json(), async(req, res) => {
-//     const { TimeId, Cell_index, T, Ux, Uy, Uz } = req.body
-//     try {
-//         const time = await Output_time.findOne({ where: { TimeId: TimeId }})
-//         const data = await Output_cells_data.create({ Cell_index, T, Ux, Uy, Uz, TimeId: time.TimeId })
-//         return res.json(data)
-//     } catch (err) {
-//         console.log(err)
-//         return res.status(500).json(err)
-//     }
-// })
-
-
-// create single time step manually
-// router.post('/timeTestSingular', express.json(), async(req, res) => {
-//     const  { Time_step } = req.body
-//     try {
-//         const Time = await Output_time.create({ Time_step })
-//         return res.json(Time)
-//     } catch (err) {
-//         console.log(err)
-//         return res.status(500).json(err)
-//     }
-// })
-
-
-// insert all velocity data into database
-// router.post('/insertVelocity', express.json(), async(req, res) => {
-//     const { caseFolderName } = req.body
-//     let TimeStepArray = createTimeStepArrayFromDataFolder(srcFolderPath, caseFolderName)
-//     try {
-//         for (let i = 0; i < TimeStepArray.length; i++) {
-//             let tempVelocityPath = path.join(srcFolderPath, caseFolderName, TimeStepArray[i], 'U')
-//             let velocityArray = readVelocityArrayFromTimeFolder(tempVelocityPath)
-//             let velocityXYZarray = splitVelocityArrayIntoXYZdirection(velocityArray)
-//             const time = await Output_time.findOne({ where: { Time_step: TimeStepArray[i] }})
-//             for (let j = 0; j < velocityXYZarray.velocity_X.length; j++) {
-//                 const data = await Output_cells_data.create({ 
-//                     Ux: velocityXYZarray.velocity_X[j],  Uy: velocityXYZarray.velocity_Y[j], 
-//                     Uz: velocityXYZarray.velocity_Z[j], TimeId: time.TimeId })
-//             }
-//         }
-//         return res.json({ message: `Insert complete!` })
-//     } catch (err) {
-//         console.log(err)
-//         return res.status(500).json(err)
-//     }
-// })
-
-
-// insert all temperature data into time steps
-// router.post('/insertTemperature', express.json(), async(req, res) => {
-//     const { caseFolderName } = req.body
-//     let TimeStepArray = createTimeStepArrayFromDataFolder(srcFolderPath, caseFolderName)
-//     try {
-//         for(let i = 0; i < TimeStepArray.length; i++) {
-//             let CellsNumber = createCellsArrayFromDataFolder(srcFolderPath, caseFolderName)
-//             let tempTemperaturePath = path.join(srcFolderPath, caseFolderName, TimeStepArray[i], 'T')
-//             let temparetureArray = readTemperatureArrayFromTimeFolder(tempTemperaturePath)
-//             for(let j = 0; j < CellsNumber; j++) {
-//                 const time = await Output_time.findOne({ where: { Time_step: TimeStepArray[i] }})
-//                 const cell = await Cells_topo.findOne({ where: { Cell_index: j.toFixed(0) }})
-//                 const data = await Output_cells_data.create({ T: temparetureArray[j], CellId: cell.CellId, TimeId: time.TimeId })
-//                 // console.log(data)
-//             }
-//         }   
-//         return res.json({ message: `Insert complete!` })
-//     } catch (err) {
-//         console.log(err)
-//         return res.status(500).json(err)
-//     }
-// })
 
 module.exports = router;
